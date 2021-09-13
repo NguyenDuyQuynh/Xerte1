@@ -1,0 +1,29 @@
+/* textVideo.html */
+	
+	#textHolder {
+		padding-bottom:	20px;
+	}
+	
+	#transcriptHolder {
+		margin-top:	10px;
+		text-align:	right;
+	}
+	
+	#transcript {
+		text-align:		left;
+		min-width:100%;
+	}
+	
+	#pageVideo.iframe {
+		position: relative;
+		overflow: hidden;
+	}
+	
+	#pageVideo.iframe iframe {
+		position: absolute;
+		top:0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+	}
+	

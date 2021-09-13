@@ -1,0 +1,304 @@
+modelfilestrs['thumbnailViewer'] = hereDoc(function(){/*!
+<script type="text/javascript">
+
+	
+	// pageChanged & sizeChanged functions are needed in every model file
+	// other functions for model should also be in here to avoid conflicts
+	var thumbnailViewer = new function() {
+		var $mainTxt,
+			$mainInfoHolder;
+
+		// Called from xenith if tab level deeplinking is available
+		this.deepLink = function(item) {
+			$('.thumbBox').each(function(i) {
+				if (
+					($.isNumeric(item) && i === parseInt(item))
+					|| (item.toLowerCase() === $(this).text().toLowerCase())
+				) {
+					$(this).click();
+					return false;
+				}
+			});
+		}
+
+		// function called every time the page is viewed after it has initially loaded
+		this.pageChanged = function() {
+			$mainTxt = $("#mainTxt");
+			$mainInfoHolder = $("#mainInfoHolder");
+			
+			$mainTxt.show();
+			$mainInfoHolder
+				.hide()
+				.removeData("index");
+		}
+		
+		// function called every time the size of the LO is changed
+		this.sizeChanged = function(pageChg) {
+			if ($mainTxt.css("display") == "none") {
+				$("#thumbHolder .thumbBox").filter(function(){ return $(this).data("index") == $mainInfoHolder.data("index")}).trigger("click");
+			}
+		}
+		
+		this.init = function() {
+			$mainTxt = 			$("#mainTxt");
+			$mainInfoHolder =	$("#mainInfoHolder");
+			var	$thumbHolder =	$("#thumbHolder");
+			
+			// set up thumb scrolling
+			var btnText = x_currentPageXML.getAttribute("priorBtnTip");
+			if (btnText == undefined) {
+				btnText = "Previous";
+			}
+			
+			$("#prevBtn")
+				.button({
+					icons:	{primary: "prev"},
+					label: 	btnText,
+					text:	false
+				})
+				.click(function() {
+					$thumbHolder.animate({scrollLeft: $thumbHolder.scrollLeft() - $thumbHolder.find(".thumbBox:eq(0)").width() - 10}, 800, "easeInOutCubic");
+				})
+				.find(".ui-icon").css("background-image", 'url("' + x_templateLocation + 'common_html5/small_prev.png")');
+			
+			
+			btnText = x_currentPageXML.getAttribute("nextBtnTip");
+			if (btnText == undefined) {
+				btnText = "Next";
+			}
+			
+			$("#nextBtn")
+				.button({
+					icons:	{primary: "next"},
+					label: 	btnText,
+					text:	false
+				})
+				.click(function() {
+					$thumbHolder.animate({scrollLeft: $thumbHolder.scrollLeft() + $thumbHolder.find(".thumbBox:eq(0)").width() + 10}, 800, "easeInOutCubic");
+				})
+				.find(".ui-icon").css("background-image", 'url("' + x_templateLocation + 'common_html5/small_next.png")');
+			
+			if (x_browserInfo.touchScreen == true) {
+				$thumbHolder.css("overflow-x", "auto");
+			}
+			
+			
+			// create thumbs in thumbBar
+			var newThumb = '<a href="#" class="thumbBox"><img class="centre x_noLightBox" /></a>';
+			$(x_currentPageXML).children().each(function(i) {
+				if (this.getAttribute("url") != undefined && this.getAttribute("url") != "") {
+					var	$thisThumb = $(newThumb),
+						$thisThumbImg = $thisThumb.find("img");
+					
+					$thumbHolder.append($thisThumb);
+					$thisThumb.data("index", i);
+					
+					if (this.getAttribute("tip") != undefined && this.getAttribute("tip") != "") {
+						$thisThumbImg.attr("alt", this.getAttribute("tip"));
+					}
+					
+					thumbnailViewer.loadImage($thisThumbImg, [$thisThumb.width(), $thisThumb.height()], this.getAttribute("url"));
+				}
+			});
+			
+			
+			var	$panelLink =		$("#panelLink"),
+				$panelImg =			$("#panelImg"),
+				$panelTxt =			$("#panelTxt");
+			
+			$mainTxt.html(x_addLineBreaks(x_currentPageXML.getAttribute("text")));
+			
+			// set up thumbnail click events - fadeOut old mainInfo and fadeIn new contents
+			$("#thumbHolder .thumbBox")
+				.click(function() {
+					if ($mainTxt.css("display") != "none") {
+						$mainTxt.fadeOut();
+					}
+					
+					var chgImg = false;
+					if ($mainInfoHolder.data("index") == undefined || $mainInfoHolder.data("index") != $(this).data("index")) {
+						chgImg = true;
+					}
+					$mainInfoHolder.data("index", $(this).data("index"));
+					
+					if (chgImg == true) {
+						var	thisData = $(x_currentPageXML).children()[$mainInfoHolder.data("index")];
+						
+						$mainInfoHolder.fadeOut(400, function() {
+							$mainInfoHolder.css({ // need to change the way the div's hidden so I can get its dimensions
+								"visibility"	:"hidden",
+								"display"		:"inherit"
+							});
+							
+							
+							// is there a link from the image?
+							var	link = "#",
+								target = "";
+							if (thisData.getAttribute("linktarget") == "Original image") {
+								link = x_evalURL(thisData.getAttribute("url"));
+								target = "_blank";
+							} else if (thisData.getAttribute("linktarget") == "Specified URL") {
+								if (thisData.getAttribute("link") != undefined && thisData.getAttribute("link") != "") {
+									link = thisData.getAttribute("link");
+									target = "_blank";
+								}
+							}
+							$panelLink.attr({
+								"href"		:link,
+								"target"	:target
+							});
+							
+							
+							// load main image
+							$panelImg.html('<img class="centre" />');
+							var $img = $panelImg.find("img");
+							if (thisData.getAttribute("tip") != undefined && thisData.getAttribute("tip") != "") {
+								$img.attr("alt", thisData.getAttribute("tip"));
+							}
+							thumbnailViewer.loadImage($img, [$mainInfoHolder.width() - 40, $x_pageHolder.height() - parseInt($mainInfoHolder.css("margin-top")) - 55], thisData.getAttribute("url"));
+							
+							
+							// add main text
+							if (thisData.getAttribute("align") == "Bottom") {
+								$panelTxt.addClass("bottom");
+							} else {
+								$panelTxt.removeClass("bottom");
+							}
+							
+							$panelTxt
+								.hide()
+								.width($img.width())
+								.height($img.height())
+								.html('<div>' + x_addLineBreaks(thisData.getAttribute("text")) + '</div>');
+							
+							
+							$mainInfoHolder.css({ // change back the way the div's hidden so it can fadeIn
+								"display"		:"none",
+								"visibility"	:"visible"
+							});
+							$mainInfoHolder.fadeIn();
+						});
+						
+					} else { // no change to image shown - just resize if needed
+						x_scaleImg($panelImg.find("img"), $mainInfoHolder.width() - 40, $x_pageHolder.height() - parseInt($mainInfoHolder.css("margin-top")) - 55, true, false);
+							
+						// And show panel again
+						$mainTxt.fadeOut(400, function() {
+							$mainInfoHolder.fadeIn(100, function() {
+								$panelTxt
+									.width($panelImg.find("img").width())
+									.height($panelImg.find("img").height());
+							});
+						});
+					}
+				})
+				.focusin(function() {
+					$(this).addClass("selected");
+				})
+				.focusout(function() {
+					$(this).removeClass("selected");
+				})
+				.keypress(function(e) {
+					var charCode = e.charCode || e.keyCode;
+					if (charCode == 32) {
+						$(this).trigger("click");
+					}
+				});
+			
+			// close button hides image & shows intro text
+			$('#imgCloseBtn')
+				.button({
+					icons: {primary: "fa fa-x-close"},
+					label: x_getLangInfo(x_languageData.find("closeBtnLabel")[0], "label", "Close"),
+					text: false
+				})
+				.click(function() {
+					event.stopPropagation();
+					$mainInfoHolder.fadeOut(400, function() {
+						$mainTxt.fadeIn();
+					});
+					return false;
+				})
+				.hide();
+			
+			// show text on rollover/focus
+			$panelLink
+				.on("mouseover focusin", function() {
+					$('.overlay').show();
+				})
+				.on("mouseout focusout", function() {
+					if ($(event.relatedTarget).closest("#panelLink").length == 0) {
+						$('.overlay').hide();
+					}
+				});
+			
+			
+			// have to add this css using jQuery rather than in styles below as some browsers (IE) don't support first-child/last-child
+			$("#thumbHolder .thumbBox:eq(0)").css("margin-left", "40px");
+			$("#thumbHolder .thumbBox:last-child").css("margin-right", "40px");
+			
+			x_pageLoaded();
+		}
+		
+		this.loadImage = function($img, maxDimensions, src) {
+			$img
+				.css({ // stops flicker on 1st load of image
+					"opacity"	:0,
+					"filter"	:'alpha(opacity=0)'
+				})
+				.one("load", function() {
+					var $this = $(this);
+					x_scaleImg($this, maxDimensions[0], maxDimensions[1], true, true);
+					
+					if ($img.parent().hasClass("thumbBox")) {
+						$img.css("margin-top", -$img.height() / 2); // centre vertically
+					}
+					
+					$('#panelTxt')
+						.width($img.width())
+						.height($img.height());
+					
+					$this.css({
+						"opacity"	:1,
+						"filter"	:'alpha(opacity=100)'
+					});
+				})
+				.attr("src", x_evalURL(src))
+				.each(function() { // called if loaded from cache as in some browsers load won't automatically trigger
+					if (this.complete) {
+						$(this).trigger("load");
+					}
+				});
+		}
+	}
+	
+	thumbnailViewer.init();
+	
+</script>
+
+
+<div id="pageContents">
+	
+	<div id="mainTxt"></div>
+	
+	<div id="mainInfoHolder">
+		<div id="mainPanel" class="panel inline">
+			<a id="panelLink" href="#" target="_blank">
+				<div id="panelImg"></div>
+				<div id="panelTxt" class="overlay"></div>
+				<button id="imgCloseBtn" class="overlay"></button>
+			</a>
+		</div>
+	</div>
+	
+	<div id="thumbBar">
+		<button id="prevBtn"/>
+		<div id="thumbHolder"></div>
+		<div id="thumbOverlayLeft"/>
+		<div id="thumbOverlayRight"/>
+		<button id="nextBtn"/>
+	</div>
+	
+</div>
+
+*/});
